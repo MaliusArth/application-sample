@@ -1,10 +1,3 @@
-// Dear ImGui: standalone example application for DirectX 11
-
-// Learn about Dear ImGui:
-// - FAQ                  https://dearimgui.com/faq
-// - Getting Started      https://dearimgui.com/getting-started
-// - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
-// - Introduction, links and more at the top of imgui.cpp
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imgui_impl_win32.h"
@@ -31,16 +24,8 @@ void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 #define MA_SEED __LINE__
-#define MA_ID(_str) ImHashStr(_str, strlen(_str), MA_SEED)
 #define MA_ID2(_str, _seed) ImHashStr(_str, strlen(_str), _seed)
-
-// void AlignRight(const char* text)
-// {
-// 	auto posX = (ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(text).x
-// 	    - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
-// 	if(posX > ImGui::GetCursorPosX())
-// 	  ImGui::SetCursorPosX(posX);
-// }
+#define MA_ID(_str) MA_ID2(_str, MA_SEED)
 
 struct FileNodeData
 {
@@ -54,7 +39,6 @@ struct FileNodeData
 void ShowFileNode(FileNodeData* node, const char* name, ImGuiID seed)
 {
 	node->id = MA_ID2(name, seed);
-	// ImGui::DebugLog("node id: %d\n", node->id);
 	ImNodes::BeginNode(node->id);
 
 	ImNodes::BeginNodeTitleBar();
@@ -63,22 +47,18 @@ void ShowFileNode(FileNodeData* node, const char* name, ImGuiID seed)
 
 	ImNodes::BeginStaticAttribute(MA_ID2("File Path", seed));
 		ImGui::SetNextItemWidth(MAX_PATH);
-		ImGui::InputText("File Path", node->file_path, node->file_path_size/* , ImGuiInputTextFlags_CallbackEdit */);
+		ImGui::InputText("File Path", node->file_path, node->file_path_size);
 	ImNodes::EndStaticAttribute();
 
-	// ImGui::Columns(2);
-	// TODO: ImGui::Table
 	node->attr_input_write = MA_ID2("Write", seed);
 	ImNodes::BeginInputAttribute(node->attr_input_write);
 		ImGui::Text("Write");
 	ImNodes::EndInputAttribute();
-	ImGui::SameLine(); // TODO
+	ImGui::SameLine();
 	node->attr_output_read = MA_ID2("Read", seed);
 	ImNodes::BeginOutputAttribute(node->attr_output_read);
-		// std::string text = "Read";
-		// TODO: AlignRight(text.c_str());
-		// ImGui::Text("%s", text);
-		ImGui::Text("Read");
+		// TODO: dynamically align output attributes to the right
+		ImGui::Text("          Read");
 	ImNodes::EndOutputAttribute();
 
 	ImNodes::SetNodeDraggable(node->id, false);
@@ -174,20 +154,9 @@ int main(int, char**)
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	/* ImNodes::ImNodesContext* context=*/ImNodes::CreateContext();
-	// ImNodes::EditorContextResetPanning({0,0});
+	ImNodes::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	// io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	// io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // Enable Docking
-	// io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
-	//io.ConfigViewportsNoAutoMerge = true;
-	//io.ConfigViewportsNoTaskBarIcon = true;
-	//io.ConfigViewportsNoDefaultParent = true;
-	//io.ConfigDockingAlwaysTabBar = true;
-	//io.ConfigDockingTransparentPayload = true;
-	//io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleFonts;     // FIXME-DPI: Experimental. THIS CURRENTLY DOESN'T WORK AS EXPECTED. DON'T USE IN USER APP!
-	//io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleViewports; // FIXME-DPI: Experimental.
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
@@ -225,8 +194,8 @@ int main(int, char**)
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	static const float MARGIN = 10;
 	bool show_message = false;
-	// char message_buffer[MAX_PATH] = {};
-	std::string pipeline_error = {};
+	char message_buffer[MAX_MSG_SIZE] = {};
+	PipelineError pipeline_error = {};
 	char input_file_path_buffer[MAX_PATH] = "data.json";
 	char output_file_path_buffer[MAX_PATH] = "result.txt";
 	unsigned int random_seed = 0x5702135;
@@ -292,7 +261,7 @@ int main(int, char**)
 
 			if (show_message)
 			{
-				if (pipeline_error.empty())
+				if (pipeline_error == PipelineError::SUCCESS)
 				{
 					ImGui::SameLine();
 					ImGui::TextColored(ImColor(0, 200, 0, 255).Value, "Success!");
@@ -300,7 +269,7 @@ int main(int, char**)
 				else
 				{
 					ImGui::SameLine();
-					ImGui::TextColored(ImColor(200, 0, 0, 255).Value, pipeline_error.data());
+					ImGui::TextColored(ImColor(200, 0, 0, 255).Value, message_buffer);
 				}
 			}
 			// ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -346,13 +315,33 @@ int main(int, char**)
 
 			if (execute_pipeline)
 			{
-				// char error_message_buffer[256];
 				show_message = true;
-				pipeline_error = ExecutePipeline(
-					{node_input_file.file_path, node_input_file.file_path_size},
-					node_random_int.seed,
-					{node_output_file.file_path, node_output_file.file_path_size}
+				auto [ error, data ] = ExecutePipeline(
+					message_buffer, sizeof(message_buffer),
+					input_file_path_buffer,
+					random_seed
 				);
+				pipeline_error = error;
+
+				if (error == PipelineError::SUCCESS)
+				{
+					FILE *file = fopen(output_file_path_buffer, "wb");
+					defer{ fclose(file); };
+
+					if (file == nullptr)
+					{
+						snprintf(message_buffer, sizeof(message_buffer), "Error opening output file: IO_ERROR: Error writing the file.");
+						pipeline_error = PipelineError::IO_ERROR;
+					}
+
+					if (error == PipelineError::SUCCESS)
+					{
+						for (auto value : data)
+						{
+							fprintf(file, "%d\n", value);
+						}
+					}
+				}
 			}
 		}
 

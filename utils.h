@@ -6,6 +6,12 @@
 #    define MA_DEBUG 1
 #endif
 
+#if MA_DEBUG
+#define dprintf(_format, ...) fprintf(stderr, _format, ##__VA_ARGS__)
+#else
+#define dprintf(_format, ...)
+#endif
+
 #pragma region defer
 
 namespace ma{
@@ -35,15 +41,3 @@ public:
 #define defer const auto& MA_CONCAT(_defer__, __LINE__) = ::ma::exit_scope_help() + [&]()
 
 #pragma endregion defer
-
-#define eprintf(_format, ...) fprintf(stderr, _format, ##__VA_ARGS__)
-
-#if MA_DEBUG
-#define dprintf(_format, ...) fprintf(stderr, _format, ##__VA_ARGS__)
-#else
-#define dprintf(_format, ...)
-#endif
-
-// #if !defined(max)
-// #define max(_a, _b) (((_a) > (_b)) ? (_a) : (_b))
-// #endif

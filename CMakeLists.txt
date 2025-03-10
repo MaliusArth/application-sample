@@ -24,6 +24,7 @@ add_compile_options(
 add_compile_definitions(
 	SIMDJSON_EXCEPTIONS=0
 	_HAS_EXCEPTIONS=0  # disable STL exceptions
+	_CRT_SECURE_NO_WARNINGS
 	# _STATIC_CPPLIB
 	UNICODE
 	_UNICODE
@@ -34,14 +35,15 @@ add_link_options(
 )
 
 set(SHARED_SOURCE_FILES
+	"utils.h"
+	"pipeline.h"
+	"pipeline.cpp"
 	"deps/simdjson/simdjson.h"
 	"deps/simdjson/simdjson.cpp"
-	"utils.h"
 )
-add_executable(pipeline_cli main_cli.cpp ${SHARED_SOURCE_FILES})
-add_executable(pipeline_gui main_gui.cpp ${SHARED_SOURCE_FILES})
+add_executable(pipeline_cli "main_cli.cpp" ${SHARED_SOURCE_FILES})
+add_executable(pipeline_gui "main_gui.cpp" ${SHARED_SOURCE_FILES})
 target_sources(pipeline_gui PRIVATE
-	"pipeline.h"
 	"deps/imgui/imgui.h"
 	"deps/imgui/imgui.cpp"
 	"deps/imgui/imgui_internal.h"
@@ -69,7 +71,7 @@ target_include_directories(pipeline_gui PRIVATE
 )
 target_link_directories(pipeline_gui PRIVATE "$ENV{DXSDK_DIR}/Lib/x86")
 target_link_libraries(  pipeline_gui PRIVATE d3d11.lib d3dcompiler.lib)
-target_compile_definitions(pipeline_gui PRIVATE _CRT_SECURE_NO_WARNINGS IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
+target_compile_definitions(pipeline_gui PRIVATE IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 # cl.exe
 # /TP
 # /DWIN32
